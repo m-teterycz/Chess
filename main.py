@@ -17,23 +17,23 @@ class Piece(pygame.sprite.Sprite):
             "WK":"assets/WK.png",
             "WQ":"assets/WQ.png",}
        
-        self.x = 0
-        self.y = 0
         self.position = position
-
         self.piece_type = piece_type
+
         self.image = pygame.image.load(self.pngs[piece_type]).convert_alpha()
-   
-    def draw(self):
-        screen.blit(self.image, (0,0))
+        self.image = pygame.transform.scale(self.image, (square_length - 3, square_length - 3))
+
+        self.rect = self.image.get_rect()
+        self.rect.center = self.position
        
 class Board:
     def __init__(self):
         self.squares = None
    
     def create_board(self):
+        global coordinates
+        global square_length
         self.squares = []
-        self.coordinates = {}
 
         if WIDTH > HEIGHT:
             square_length = HEIGHT // 8
@@ -51,7 +51,7 @@ class Board:
                 else:
                     current_color = DARK_SQUARE_COLOR
                 self.squares.append(Square(square_length * j, square_length * i, square_length, current_color))
-                self.coordinates[f"{chr(65 + j)}{i + 1}"] = ((square_length * j) + square_length // 2, (HEIGHT - (square_length * i))  - square_length // 2)
+                coordinates[f"{chr(65 + j)}{i + 1}"] = ((square_length * j) + square_length // 2, (HEIGHT - (square_length * i))  - square_length // 2)
 
    
     def draw_board(self):
@@ -59,15 +59,13 @@ class Board:
             square.draw()
 
     def setup_pieces(self):
-        self.pieces = []
+        global coordinates
+        global pieces
 
-        pieces = [["RNBQKBNR"], ["P" * 8]] # From the black perspective.
+        piece_format = "RNBQKBNR"
 
-        for piece in pieces:
-            pass
-
-        
-        
+        for i,piece in enumerate(piece_format): # Generate the white side first
+            pieces.add(Piece("W" + piece, list(coordinates.values())[i]))
 
    
 class Square(pygame.sprite.Sprite):
@@ -91,11 +89,15 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
 clock.tick(60)
 
+square_length = None
+coordinates = {}
+pieces = pygame.sprite.Group()
 Board1 = Board()
+
 Board1.create_board()
 Board1.setup_pieces()
 
-pieces = pygame.sprite.Group()
+
 
 running = True
 while running:
@@ -104,7 +106,10 @@ while running:
             running = False
    
     screen.fill((100, 100, 100))
+
     Board1.draw_board()
+    pieces.draw(screen)
+
     pygame.display.flip()
    
 pygame.quit()
