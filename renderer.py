@@ -8,6 +8,6 @@ class Renderer:
 
     def draw(self, board):
         for square in board.squares:
-            pygame.draw.rect(self.surface, square.color, (square.x, square.y, square.w, square.w))
+            pygame.draw.rect(self.surface, square.displayed_color, (square.x, square.y, square.w, square.w))
 
         board.pieces_group.draw(self.surface)
