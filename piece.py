@@ -27,7 +27,13 @@ def check_valid_bounds(x, y, board, color):
     if y > 7 or y < 0 or x > 7 or x < 0 or board[y][x][0] == color:
         return False
     return True
-    
+
+
+def get_piece_at_index(position, board):
+    screen_pos = boardindex_to_screenpos(position, board.square_length)
+    for piece in board.pieces_group:
+        if piece.rect.center == screen_pos:
+            return piece
 
 
 class Piece(pygame.sprite.Sprite):
@@ -98,7 +104,7 @@ class Pawn(Piece):
             self.moves.append((self.rect.center[0], self.rect.center[1] + self.square_length * self.direction))
 
         if board.positions[self.row + self.direction * 2][self.col] == "." and self.moved == False:
-            self.moves.append((self.rect.center[0], self.rect.center[1] + self.square_length * self.direction * 2))
+            self.moves.append((self.rect.center[0], self.rect.center[1] + self.square_length * self.direction * 2))         
 
         # CAPTURES
         if self.col != 7:
@@ -221,13 +227,15 @@ class King(Piece):
         for piece in board.pieces_group: # get all the enemy pieces to see which squares are dangerous
             if piece.color != self.color and piece.piece_type != "K":
                 self.danger_squares.extend(piece.get_moves(board))
-
+            elif piece.piece_type == "K" and piece.color != self.color:
+                y,x = screenpos_to_boardindex(piece.rect.center, self.square_length)
+                for direction in directions:
+                    self.danger_squares.append(boardindex_to_screenpos((x + direction[0], y + direction[1]), self.square_length))
         
         for direction in directions:
             new_x = self.col + direction[0]
             new_y = self.row + direction[1]
 
-            print(self.danger_squares)
             if not(check_valid_bounds(new_x, new_y, board.positions, self.color)) or boardindex_to_screenpos((new_x, new_y), self.square_length) in self.danger_squares:
                 continue
 
