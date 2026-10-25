@@ -1,6 +1,6 @@
 import pygame
 
-def create_piece(color, piece_type, position, square_length):
+def create_piece(color, piece_type, square_length):
     piece_classes = {
         "Q": Queen,
         "K": King,
@@ -10,7 +10,7 @@ def create_piece(color, piece_type, position, square_length):
         "P": Pawn,
     }
 
-    return piece_classes[piece_type](color, position, square_length, piece_type)
+    return piece_classes[piece_type](color, square_length, piece_type)
 
 def screenpos_to_boardindex(screenpos, square_length):
     x,y = screenpos
@@ -21,23 +21,27 @@ def screenpos_to_boardindex(screenpos, square_length):
     return row, col
 
 def boardindex_to_screenpos(boardindex, square_length):
-    return boardindex[0] * square_length + square_length // 2, boardindex[1] * square_length + square_length // 2
+    return boardindex[0] * square_length, boardindex[1] * square_length
 
-def check_valid_bounds(x, y, board, color):
-    if y > 7 or y < 0 or x > 7 or x < 0 or board[y][x][0] == color:
+def check_valid_bounds(x, y):
+    if y > 7 or y < 0 or x > 7 or x < 0:
         return False
     return True
 
 
-def get_piece_at_index(position, board):
-    screen_pos = boardindex_to_screenpos(position, board.square_length)
-    for piece in board.pieces_group:
-        if piece.rect.center == screen_pos:
-            return piece
+def check_collide(board, position, color):
+    row = position[0]
+    col = position[1]
+    if board[row][col] != ".":
+        if board[row][col].color == color:
+            return "Friendly"
+        else:
+            return "Enemy"
+    return None
 
 
-class Piece(pygame.sprite.Sprite):
-    def __init__(self, color, position, square_length, piece_type):
+class Piece:
+    def __init__(self, color, square_length, piece_type):
         super().__init__()
 
         self.pngs = {"BP":"assets/BP.png",
@@ -55,141 +59,144 @@ class Piece(pygame.sprite.Sprite):
 
         self.piece_type = piece_type
         self.square_length = square_length
-        self.position = position
         self.color = color
+        self.move_count = 0
 
         self.image = pygame.image.load(self.pngs[color + piece_type]).convert_alpha()
         self.image = pygame.transform.scale(self.image, (square_length - 3, square_length - 3))
 
         self.rect = self.image.get_rect()
-        self.rect.center = self.position
-       
-        self.row, self.col = screenpos_to_boardindex(self.rect.center, self.square_length)
-        self.rect.center = position
 
-    def move(self, board, square):
-        self.row, self.col = screenpos_to_boardindex(self.position, self.square_length)
-        self.new_row, self.new_col = screenpos_to_boardindex(square.rect.center, self.square_length)
+    def move(self, board, target_pos, piece_pos):
+        self.row, self.col = piece_pos[0], piece_pos[1]
+        self.t_row, self.t_col = target_pos[0], target_pos[1]
 
+        piece = board.positions[self.row][self.col]
         board.positions[self.row][self.col] = "."
-        board.positions[self.new_row][self.new_col] = self.color + self.piece_type
-
-        self.row = self.new_row
-        self.col = self.new_col
-       
-        self.position = square.rect.center
-        self.rect.center = square.rect.center
+        board.positions[self.t_row][self.t_col] = piece
 
         self.moved = True
+        self.move_count += 1
 
         return board.positions
 
 
 class Pawn(Piece):
-    def __init__(self, color, position, square_length, piece_type):
-        super().__init__(color, position, square_length, piece_type)
+    def __init__(self, color, square_length, piece_type):
+        super().__init__(color, square_length, piece_type)
         self.moved = False
 
-        if self.color == "W":
-            self.direction = -1
-        else:
-            self.direction = 1
 
-
-    def get_moves(self, board):
+    def get_moves(self, board, board_pos):
         self.moves = []
+        direction = -1 if self.color == "W" else 1
+
 
         # FORWARD MOVES
-        if board.positions[self.row + self.direction][self.col] == ".":
-            self.moves.append((self.rect.center[0], self.rect.center[1] + self.square_length * self.direction))
+        if board.positions[board_pos[0] + direction][board_pos[1]] == ".": # Forward moves
+            self.moves.append([board_pos[0] + direction, board_pos[1]])
+            if board.positions[board_pos[0] + direction * 2][board_pos[1]] == "." and self.moved == False:
+                self.moves.append([board_pos[0] + direction * 2, board_pos[1]])
 
-        if board.positions[self.row + self.direction * 2][self.col] == "." and self.moved == False:
-            self.moves.append((self.rect.center[0], self.rect.center[1] + self.square_length * self.direction * 2))         
+        for i in range(-1,2, 2): # Diagonal Captures
+            new_row = board_pos[0]
+            new_col = board_pos[1]
 
-        # CAPTURES
-        if self.col != 7:
-            if board.positions[self.row + self.direction][self.col + 1][0] != self.color and board.positions[self.row + self.direction][self.col + 1] != ".":
-                self.moves.append((self.rect.center[0] + self.square_length, self.rect.center[1] + self.square_length * self.direction))
+            if not(check_valid_bounds(new_col, new_row)):
+                continue
 
-        if self.col != 0:
-            if board.positions[self.row + self.direction][self.col - 1][0] != self.color and board.positions[self.row + self.direction][self.col - 1] != ".":
-                self.moves.append((self.rect.center[0] - self.square_length, self.rect.center[1] + self.square_length * self.direction))
+            current_square = board.positions[new_row + direction][new_col + i]
+            if current_square != ".":
+                if current_square.color != self.color:
+                    self.moves.append([new_row + direction, new_col + i])
+
+        if board_pos[0] == 3 and self.color == "W":
+            if board.positions[board_pos[0]][board_pos[1] + 1] != ".":
+                piece = board.positions[board_pos[0]][board_pos[1] + 1]
+                if piece.color != self.color and piece.piece_type == "P" and piece.move_count == 1:
+                    self.moves.append([board_pos[0] - 1, board_pos[1] + 1])
 
         return self.moves
 
-    def move(self, board, square):
-        return super().move(board, square)
+    def move(self, board, target_pos, board_pos):
+        return super().move(board, target_pos, board_pos)
 
 class Knight(Piece):
-    def __init__(self, color, position, square_length, piece_type):
-        super().__init__(color, position, square_length, piece_type)
+    def __init__(self, color, square_length, piece_type):
+        super().__init__(color, square_length, piece_type)
 
-    def get_moves(self, board):
+    def get_moves(self, board, board_pos):
         self.moves = []
         directions = ((-2, -1), (-2,  1), (-1, -2), (-1,  2), ( 1, -2), ( 1,  2), ( 2, -1), ( 2,  1))
 
         for direction in directions:
-            new_x = self.col + direction[0]
-            new_y = self.row + direction[1]
+            new_col = board_pos[1] + direction[1]
+            new_row = board_pos[0] + direction[0]
 
-            if not(check_valid_bounds(new_x, new_y, board.positions, self.color)):
+            if not(check_valid_bounds(new_col, new_row)):
                 continue
 
-            new_pos = boardindex_to_screenpos([new_x, new_y], self.square_length)
+            new_pos = [new_row, new_col]
             
             self.moves.append(new_pos)
 
         return self.moves
 
-    def move(self, board, square):
-        return super().move(board, square)
+    def move(self, board, target_pos, board_pos):
+        return super().move(board, target_pos, board_pos)
 
 class Bishop(Piece):
-    def __init__(self, color, position, square_length, piece_type):
-        super().__init__(color, position, square_length, piece_type)
+    def __init__(self, color, square_length, piece_type):
+        super().__init__(color, square_length, piece_type)
 
-    def get_moves(self, board):
+    def get_moves(self, board, board_pos):
         self.moves = []
         directions = [(1,1), (-1,1), (1,-1), (-1,-1)]
        
         for direction in directions:
-            new_x = self.col
-            new_y = self.row
+            new_col = board_pos[1]
+            new_row = board_pos[0]
             while True:
-                new_x += direction[0]
-                new_y += direction[1]
-                if not(check_valid_bounds(new_x, new_y, board.positions, self.color)):
+                new_col += direction[0]
+                new_row += direction[1]
+                if not(check_valid_bounds(new_col, new_row)):
                     break
 
-                elif board.positions[new_y][new_x] != ".":
-                    self.moves.append(boardindex_to_screenpos((new_x, new_y), self.square_length))
+
+                result = check_collide(board.positions, [new_row, new_col], self.color) == "Friendly"
+                if result == "Friendly":
                     break
+                elif result == "Enemy":
+                    self.moves.append([new_row, new_col])
+                    break
+
+                    
                
-                self.moves.append(boardindex_to_screenpos((new_x, new_y), self.square_length))
+                self.moves.append([new_row, new_col])
         return self.moves
    
     def move(self, board, square):
         return super().move(board, square)
 
 class Rook(Piece):
-    def __init__(self, color, position, square_length, piece_type):
-        super().__init__(color, position, square_length, piece_type)
+    def __init__(self, color, square_length, piece_type):
+        super().__init__(color, square_length, piece_type)
    
     def get_moves(self, board):
         self.moves = []
         directions = [(1,0), (0,1), (-1, 0), (0, -1)]
        
         for direction in directions:
-            new_x = self.col
-            new_y = self.row
+            new_col = self.col
+            new_row = self.row
             while True:
-                new_x += direction[0]
-                new_y += direction[1]
+                new_col += direction[1]
+                new_row += direction[0]
 
-                if not(check_valid_bounds(new_x, new_y, board.positions, self.color)):
+                if not(check_valid_bounds(new_col, new_row, board.positions, self.color)):
                     break
 
-                elif board.positions[new_y][new_x] != ".":
+                elif board.positions[new_row][new_col] != ".":
                     self.moves.append(boardindex_to_screenpos((new_x, new_y), self.square_length))
                     break
                
@@ -201,8 +208,8 @@ class Rook(Piece):
         return super().move(board, square)
 
 class Queen(Rook, Bishop):
-    def __init__(self, color, position, square_length, piece_type):
-        super().__init__(color, position, square_length, piece_type)
+    def __init__(self, color, square_length, piece_type):
+        super().__init__(color, square_length, piece_type)
    
     def get_moves(self, board): # Cannot use something like .extend since both classes return self.moves which override eachother.
         rook_moves = Rook.get_moves(self, board)
@@ -216,8 +223,8 @@ class Queen(Rook, Bishop):
    
    
 class King(Piece):
-    def __init__(self, color, position, square_length, piece_type):
-        super().__init__(color, position, square_length, piece_type)
+    def __init__(self, color, square_length, piece_type):
+        super().__init__(color, square_length, piece_type)
 
     def get_moves(self, board):
         self.moves = []

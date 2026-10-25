@@ -1,4 +1,4 @@
-import pygame
+import pygame, math
 from board import Board
 from renderer import Renderer
 
@@ -14,11 +14,18 @@ Board1 = Board(WIDTH, HEIGHT, screen)
 Board1.create_board()
 Board1.setup_pieces()
 
-renderer = Renderer(screen)
+renderer = Renderer(screen, Board1.square_length)
 
 possible_moves = []
 selected_piece = None
 turn = "W"
+
+
+def reset_square_colors():
+    for i in range(len(Board1.squares)):
+        for j in range(len(Board1.squares)):
+            Board1.squares[i][j].displayed_color = Board1.squares[i][j].color
+
 
 running = True
 while running:
@@ -29,33 +36,32 @@ while running:
             if event.button == 1:
                 mouse_pos = event.pos
 
-                for piece in Board1.pieces_group:
-                    if piece.rect.collidepoint(mouse_pos) and piece.color == turn:
-                        selected_piece = piece
-                        possible_moves = piece.get_moves(Board1)
-                       
+                col = math.floor(mouse_pos[0] / Board1.square_length)
+                row = math.floor(mouse_pos[1] / Board1.square_length)
+                square = Board1.squares[row][col]
 
-                for square in Board1.squares:
-                    if square.rect.center in possible_moves:
+                if Board1.positions[row][col] != "." and Board1.positions[row][col].color == turn:
+                    selected_piece = Board1.positions[row][col]
+                    piece_row, piece_col = row, col
+
+                    possible_moves = selected_piece.get_moves(Board1, [row,col])
+                    reset_square_colors()
+                    for move in possible_moves:
+                        square = Board1.squares[move[0]][move[1]]
                         square.displayed_color = square.highlighted_color
-                       
-                    if square.rect.collidepoint(mouse_pos) and selected_piece != None and square.rect.center != selected_piece.position and square.rect.center in possible_moves: # Moved a piece
-                        for piece in Board1.pieces_group:
-                            if piece.rect.center == square.rect.center:
-                                piece.kill()
-                        Board1.positions = selected_piece.move(Board1, square)
-                        selected_piece = None
+                else:
+                    reset_square_colors()
 
-                        turn = "B" if turn == "W" else "W"
-                       
-                        for square in Board1.squares:
-                            square.displayed_color = square.color
-                        possible_moves = []
-                       
-            for square in Board1.squares:
-                if square.rect.center not in possible_moves:
-                    square.displayed_color = square.color
-   
+
+                if [row, col] in possible_moves:
+                    Board1.positions = selected_piece.move(Board1, [row, col], [piece_row, piece_col])
+                    possible_moves = []
+
+                    reset_square_colors()
+                    turn = "B" if turn == "W" else "W"
+    
+
+
     screen.fill((0, 0, 0))
 
    

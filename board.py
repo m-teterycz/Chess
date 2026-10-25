@@ -26,13 +26,14 @@ class Board:
         current_color = None
 
         for i in range(8):
+            temp = []
             for j in range(8):
                 if (i % 2 == 0 and j % 2 == 0) or (i % 2 != 0 and j % 2 != 0):
                     current_color = WHITE_SQUARE_COLOR
                 else:
                     current_color = DARK_SQUARE_COLOR
-                self.squares.append(Square(self.square_length * j, self.square_length * i, self.square_length, current_color))
-                self.coordinates[f"{chr(65 + j)}{i + 1}"] = ((self.square_length * j) + self.square_length // 2, (self.HEIGHT - (self.square_length * i))  - self.square_length // 2)
+                temp.append(Square(self.square_length * j, self.square_length * i, self.square_length, current_color))
+            self.squares.append(temp)
 
 
     def setup_pieces(self):
@@ -40,18 +41,18 @@ class Board:
         piece_format_B = "RNBKQBNR"
 
         for i,piece in enumerate(piece_format_W): # Generate the white side first
-            self.pieces_group.add(create_piece("W", piece, list(self.coordinates.values())[i], self.square_length))
-            self.pieces_group.add(create_piece("W", "P", self.coordinates[f"{chr(ord('A') + i)}2"], self.square_length))
-            self.positions[6][i] = "WP"
-            self.positions[7][i] = "W" + piece
+            current_piece = create_piece("W", piece, self.square_length)
+            current_pawn = create_piece("W", "P", self.square_length)
+            self.positions[6][i] = current_pawn
+            self.positions[7][i] = current_piece
        
         for i,piece in enumerate(piece_format_B): # Generate the black side
-            self.pieces_group.add(create_piece("B", piece, list(self.coordinates.values())[::-1][i], self.square_length))
-            self.pieces_group.add(create_piece("B", "P", self.coordinates[f"{chr(ord('A') + i)}7"], self.square_length))
-            self.positions[1][i] = "BP"
-            self.positions[0][i] = "B" + piece
+            current_piece = create_piece("B", piece, self.square_length)
+            current_pawn = create_piece("B", "P", self.square_length)
+            self.positions[1][i] = current_pawn
+            self.positions[0][i] = current_piece
    
-class Square(pygame.sprite.Sprite):
+class Square:
     def __init__(self, x, y, w, color):
         self.x = x
         self.y = y
