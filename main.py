@@ -6,6 +6,9 @@ WIDTH = 800
 HEIGHT = 800
 
 pygame.init()
+pygame.font.init()
+my_font = pygame.font.SysFont('Comic Sans MS', 30)
+
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
 clock.tick(60)
@@ -19,6 +22,8 @@ renderer = Renderer(screen, Board1.square_length)
 possible_moves = []
 selected_piece = None
 turn = "W"
+piece_row = None
+piece_col = None
 
 
 def reset_square_colors():
@@ -45,34 +50,35 @@ while running:
                     piece_row, piece_col = row, col
 
                     possible_moves = selected_piece.get_moves(Board1, [row,col])
+                    Board1.get_legal_moves(turn, selected_piece)
+                    possible_moves = selected_piece.moves
                     reset_square_colors()
                     for move in possible_moves:
-                        print(move)
                         square = Board1.squares[move[0]][move[1]]
                         square.displayed_color = square.highlighted_color
+                
                 else:
                     reset_square_colors()
 
-
-                if [row, col] in possible_moves:
-                    if selected_piece.piece_type == "P" and abs(row - piece_row) == 2:
-                        Board1.last_up2_pawn = selected_piece
-                    else:
-                        Board1.last_up2_pawn = None
-                    
-                    Board1.check_enpassant([row, col], selected_piece)
-                    Board1.positions = selected_piece.move(Board1, [row, col], [piece_row, piece_col])
-
+                if Board1.make_move(selected_piece, possible_moves, [row, col], [piece_row, piece_col]):
                     possible_moves = []
                     reset_square_colors()
-                    turn = "B" if turn == "W" else "W"
-    
+                    turn = "B" if turn == "W" else "W"    
 
 
     screen.fill((0, 0, 0))
-
    
     renderer.draw(Board1)
+
+    if Board1.check_checkmate(turn):
+        won = "Black" if turn == "W" else "White"
+        text_surface = my_font.render(f'Checkmate: {won} wins!', True, (0, 0, 0))
+        rect = text_surface.get_rect(center=(WIDTH//2, HEIGHT//2))
+        screen.blit(text_surface, rect)
+    elif Board1.check_stalemate(turn):
+        text_surface = my_font.render(f'Stalemate', True, (0, 0, 0))
+        rect = text_surface.get_rect(center=(WIDTH//2, HEIGHT//2))
+        screen.blit(text_surface, rect)
 
 
     pygame.display.flip()
