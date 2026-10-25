@@ -47,6 +47,7 @@ while running:
                     possible_moves = selected_piece.get_moves(Board1, [row,col])
                     reset_square_colors()
                     for move in possible_moves:
+                        print(move)
                         square = Board1.squares[move[0]][move[1]]
                         square.displayed_color = square.highlighted_color
                 else:
@@ -54,9 +55,15 @@ while running:
 
 
                 if [row, col] in possible_moves:
+                    if selected_piece.piece_type == "P" and abs(row - piece_row) == 2:
+                        Board1.last_up2_pawn = selected_piece
+                    else:
+                        Board1.last_up2_pawn = None
+                    
+                    Board1.check_enpassant([row, col], selected_piece)
                     Board1.positions = selected_piece.move(Board1, [row, col], [piece_row, piece_col])
-                    possible_moves = []
 
+                    possible_moves = []
                     reset_square_colors()
                     turn = "B" if turn == "W" else "W"
     

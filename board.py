@@ -11,10 +11,11 @@ class Board:
         self.WIDTH = WIDTH
         self.HEIGHT = HEIGHT
         self.screen = screen
+        self.last_up2_pawn = None
    
     def create_board(self):
         self.squares = []
-        self.pieces_group = pygame.sprite.Group()
+        self.pieces = []
        
         if self.WIDTH > self.HEIGHT:
             self.square_length = self.HEIGHT // 8
@@ -45,12 +46,34 @@ class Board:
             current_pawn = create_piece("W", "P", self.square_length)
             self.positions[6][i] = current_pawn
             self.positions[7][i] = current_piece
+            self.pieces.append(current_piece)
+            self.pieces.append(current_pawn)
        
         for i,piece in enumerate(piece_format_B): # Generate the black side
             current_piece = create_piece("B", piece, self.square_length)
             current_pawn = create_piece("B", "P", self.square_length)
             self.positions[1][i] = current_pawn
             self.positions[0][i] = current_piece
+            self.pieces.append(current_piece)
+            self.pieces.append(current_pawn)
+
+    def get_piece_pos(self, piece):
+        for row in range(len(self.positions)):
+            for col in range(len(self.positions)):
+                if self.positions[row][col] == piece:
+                    return [row, col]
+
+    def check_enpassant(self, new_pos, piece):
+        if piece.color == "W":
+            direction = 1
+        else:
+            direction = -1
+    
+        self.row, self.col = self.get_piece_pos(piece)
+        if abs(new_pos[0] - self.row) == 1 and abs(new_pos[1] - self.col) == 1 and piece.piece_type == "P": # Must be en_passant
+            self.positions[new_pos[0] + direction][new_pos[1]] = "."
+
+
    
 class Square:
     def __init__(self, x, y, w, color):
