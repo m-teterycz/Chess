@@ -26,11 +26,11 @@ class Engine:
         self.engine_color = engine_color
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.batch_size = 2048
-        self.piece_value = {"Q" : 9,
-                "R" : 5,
-                "B" : 3,
+        self.piece_value = {"P" : 1,
                 "N" : 3,
-                "P" : 1,
+                "B" : 3,
+                "R" : 5,
+                "Q" : 9,
                 "K" : 0
                 }
         self.WIDTH = WIDTH
@@ -59,8 +59,8 @@ class Engine:
             board, castling_rights, white_value, black_value = self.board_to_tensor_boards(board)
             T = torch.tensor(board)
             T = T.flatten()
-            T = torch.cat((torch.tensor(number_turn) ,T))
-            T = torch.cat((torch.tensor(castling_rights) ,T))
+            T = torch.cat((T, torch.tensor(castling_rights)))
+            T = torch.cat((T, torch.tensor(number_turn)))
             T = T.to(self.device)
             
             return self.network(T.float()) + white_value - black_value
@@ -74,8 +74,8 @@ class Engine:
                 empty_boards.append([[0 for _ in range(8)]for _ in range(8)])
 
             for i in range(1, 13): # bitboards
-                wrapped_index = i % 6
-                color = "W" if i > 6 else "B"
+                wrapped_index = (i - 1) % 6
+                color = "B" if i > 6 else "W"
                 searching_piece = list(self.piece_value.keys())[wrapped_index]
                 for piece in board.pieces:
                     if piece.piece_type == searching_piece and piece.color == color:
@@ -122,49 +122,26 @@ class Engine:
         self.validation_tensors = []
         self.validation_eval_tensors = []
 
-        for i in range(self.validation_positions):
-            Board1, turn, castling_rights, white_value, black_value = self.FEN_to_Board(self.validation_FENS[i])
-            number_turn = [1] if turn == "W" else [0]
+        Board_T = torch.tensor(self.validation_boards).float()
 
-            T = torch.tensor(Board1).float()
-            T = T.flatten()
-            T = torch.cat((torch.tensor(number_turn).float() ,T))
-            T = torch.cat((torch.tensor(castling_rights).float(), T))
-            self.validation_tensors.append(T)
+        Eval_T = torch.tensor(self.validation_evals - self.validation_material_differences).float()
 
-            T = torch.tensor(self.validation_evals[i] - (white_value - black_value)).float()
-            self.validation_eval_tensors.append(T)
-
-        del self.validation_FENS
-        del self.validation_evals
-
-        self.validation_tensors = torch.stack(self.validation_tensors).to(self.device)
-        self.validation_eval_tensors = torch.stack(self.validation_eval_tensors).to(self.device)
+        self.validation_tensors = Board_T.to(self.device)
+        self.validation_eval_tensors = Eval_T.to(self.device)
 
 
     def data_to_training_tensors(self, batch_size, pos):
-        self.training_board_tensors = []
-        self.training_eval_tensors = []
-
         start_index = pos *  batch_size
-        remaining_positions = len(self.training_FENS) - start_index
+        remaining_positions = len(self.training_boards) - start_index
         actual_chunk_size = min(remaining_positions, batch_size)
-        for i in range(actual_chunk_size): # creates all the tensors in batches so RAM isnt filled.
-            Board1, turn, castling_rights, white_value, black_value = self.board_info[i + start_index]
-            number_turn = [1] if turn == "W" else [0]
+        Boards = self.training_boards[start_index : start_index + actual_chunk_size]
 
-            T = torch.tensor(Board1).float()
-            T = T.flatten()
-            T = torch.cat((torch.tensor(number_turn).float() ,T))
-            T = torch.cat((torch.tensor(castling_rights).float(), T))
-            self.training_board_tensors.append(T)
+        Board_T = torch.tensor(Boards).float()
 
-            T = torch.tensor(self.training_evals[i + pos * batch_size] - (white_value - black_value)).float()
-            T = T.flatten()
-            self.training_eval_tensors.append(T)
+        Eval_T = torch.tensor(self.training_evals[start_index : start_index + actual_chunk_size] - self.training_material_differences[start_index : start_index + actual_chunk_size]).float()
 
-        self.training_board_tensors = torch.stack(self.training_board_tensors).to(self.device)
-        self.training_eval_tensors = torch.stack(self.training_eval_tensors).to(self.device)
+        self.training_board_tensors = Board_T.to(self.device)
+        self.training_eval_tensors = Eval_T.to(self.device)
 
             
     def train(self):
@@ -176,12 +153,10 @@ class Engine:
             pos_batch = self.training_board_tensors[i * self.batch_size: self.batch_size + (i * self.batch_size)]
             eval_batch = self.training_eval_tensors[i * self.batch_size: self.batch_size + (i * self.batch_size)]
 
-            prediction = self.network(pos_batch.float())
+            prediction = self.network(pos_batch.float()).squeeze(-1)
 
             loss = loss_function(prediction, eval_batch)
 
-            if batch_count % 100 == 0:
-                print(batch_count, loss)
 
             self.optimizer.zero_grad()
             loss.backward()
@@ -195,6 +170,7 @@ class Engine:
             self.network.load_state_dict(weights)
             self.network.eval()
         except:
+            print("Failed to load.")
             pass
         self.network.to(self.device)
         self.optimizer = torch.optim.Adam(self.network.parameters(), lr=0.001)
@@ -207,7 +183,7 @@ class Engine:
         self.network.eval() # put network into eval mode
         differences_sumed = 0
         with torch.inference_mode(): # stop calculating weights
-            for i in range(math.ceil(self.validation_positions / self.batch_size)):
+            for i in range(math.ceil(len(self.validation_boards) / self.batch_size)):
                 validation_stack = self.validation_tensors[i * self.batch_size: self.batch_size + (i * self.batch_size)]
                 target_stack = self.validation_eval_tensors[i * self.batch_size: self.batch_size + (i * self.batch_size)]
                 result = self.network(validation_stack.float())
@@ -215,7 +191,7 @@ class Engine:
                 differences_tensor = torch.abs(target_stack - result.squeeze(-1))
                 differences_sumed += differences_tensor.sum()
 
-            MAE = (differences_sumed / self.validation_positions).item()
+            MAE = (differences_sumed / len(self.validation_boards)).item()
             if abs(MAE) < self.smallest_MAE:
                 self.smallest_MAE = MAE
                 self.best_weights = copy.deepcopy(self.network.state_dict())
@@ -228,7 +204,7 @@ class Engine:
     def FEN_to_flatboard(self, FEN):
         FEN = FEN.split(" ")
         formatted_data = np.zeros(shape = 773, dtype= "uint8")
-        row = col = 0
+        row = col = material_difference =  0
         piece_board_scalars = {"P" : 0, "N" : 64, "B" : 128, "R" : 192, "Q" : 256, "K" : 320}
         for char in FEN[0]:
             if char == "/":
@@ -239,11 +215,14 @@ class Engine:
             elif char.isupper(): # must be a white piece
                 index = piece_board_scalars[char] + row * 8 + col
                 formatted_data[index] = 1
+                material_difference += self.piece_value[char]
                 col += 1
             elif char.islower():
                 index = piece_board_scalars[char.upper()] + row * 8 + col + 384
                 formatted_data[index] = 1
+                material_difference -= self.piece_value[char.upper()]
                 col += 1
+                
 
         for char in FEN[2]:
             if char == "K":
@@ -259,18 +238,21 @@ class Engine:
         if FEN[1] == "w":
             formatted_data[772] = 1
 
-        return formatted_data
+        return formatted_data, material_difference
 
     def bulkFEN_to_flatboard(self):
         training_length = len(self.training_data.index)
         validation_length = len(self.validation_data.index)
-        self.training_boards = np.zeros(shape = (training_length, 773), dtype= "uint8")
-        self.validation_boards = np.zeros(shape = (validation_length, 773), dtype= "uint8")
+        self.training_boards = np.zeros(shape = (training_length, 773), dtype = "uint8")
+        self.validation_boards = np.zeros(shape = (validation_length, 773), dtype = "uint8")
 
-        for i,fen in enumerate(self.training_data.iloc[:, 0].tolist()):
-            self.training_boards[i] = self.FEN_to_flatboard(fen)
-        for i,fen in enumerate(self.validation_data.iloc[:, 0].tolist()):
-            self.validation_boards[i] = self.FEN_to_flatboard(fen)
+        self.validation_material_differences = np.zeros(shape = (validation_length), dtype = "int8")
+        self.training_material_differences = np.zeros(shape = (training_length), dtype = "int8")
+
+        for i,fen in enumerate(self.training_data.iloc[:, 0]):
+            self.training_boards[i], self.training_material_differences[i] = self.FEN_to_flatboard(fen)
+        for i,fen in enumerate(self.validation_data.iloc[:, 0]):
+            self.validation_boards[i], self.validation_material_differences[i] = self.FEN_to_flatboard(fen)
 
     def extract_evals(self):
         self.training_evals = self.training_data[1].to_numpy(copy = True)
@@ -278,9 +260,3 @@ class Engine:
 
         del self.training_data
         del self.validation_data
-
-
-    def shuffle(self):
-        combined = list(zip(self.training_FENS, self.training_evals))
-        random.shuffle(combined)
-        self.training_FENS, self.training_evals = zip(*combined)
