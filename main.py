@@ -26,15 +26,19 @@ renderer = Renderer(screen, WIDTH, HEIGHT)
 game = Game(screen, WIDTH, HEIGHT, engine_enabled, renderer)
 
 
+chunk_size = 50000
+validations_positions = 20000
+total_positions = 1000000
+epochs = 30
 
-engine.get_data(1000000, 20000)
+engine.get_data(r"C:\Users\user\Downloads\chessData.csv\chessData.csv", total_positions, validations_positions)
 engine.bulkFEN_to_flatboard()
 engine.extract_evals()
 engine.data_to_validation_tensors()
-for epoch in range(50):
-    chunks = math.ceil(len(engine.training_boards) / 10000)
+for epoch in range(epochs):
+    chunks = math.ceil(len(engine.training_boards) / chunk_size)
     for i in range(chunks):
-        engine.data_to_training_tensors(10000, i)
+        engine.data_to_training_tensors(chunk_size, i)
         engine.train()
     engine.validation()
 engine.save_best_weights()

@@ -38,6 +38,28 @@ class Engine:
         self.smallest_MAE = 100
         self.load()
 
+    def negated_minimax(self, board, turn, depth):
+        if depth == 0:
+            return self.evaluate_position(board, turn)
+        maxi = float('-inf')
+       
+        board.PNGS_enabled = False
+        board_copy = copy.copy(board)
+        board_copy.positions = board.copy_board_pos()
+        board_copy.pieces = board.pieces.copy()
+        board.PNGS_enabled = True
+       
+        for piece in board_copy.pieces: # simulate a move
+            if piece.color == turn:
+                piece.get_legal_moves(board, turn)
+                for move in piece.moves:
+                    piece.move(board_copy, move, board_copy.get_piece_pos(piece))
+                    evaluation = self.evaluate_position(board_copy, turn)
+                    self.negated_minimax(board_copy, turn, depth - 1)
+
+        # need to make and undo a move for efficiency. Prob should make the simulated move a Board function
+        # since im doing move unmove in get_legal_moves()
+
     def get_best_move(self, board):
         while True:
             piece = random.choice(self.engine_pieces)
@@ -62,7 +84,7 @@ class Engine:
             T = torch.cat((T, torch.tensor(castling_rights)))
             T = torch.cat((T, torch.tensor(number_turn)))
             T = T.to(self.device)
-            
+           
             return self.network(T.float()) + white_value - black_value
 
     def board_to_tensor_boards(self, board):
@@ -108,11 +130,16 @@ class Engine:
 
             return empty_boards, castling_rights, white_value, black_value
 
-    def get_data(self, row_count, validation_count):
-        data = pandas.read_csv("C:/Users/user/Downloads/chessData.csv/chessData.csv", memory_map = True, header = None, nrows = row_count)
+    def get_data(self, path, row_count, validation_count):
+        data = pandas.read_csv(path, memory_map = True, header = None, nrows = row_count, encoding="utf-8-sig")
         eval_col = data.iloc[:, 1]
         data = data[~eval_col.str.contains("#", na = False)].dropna()
         data = data.sample(frac = 1)
+        data.iloc[:, 1] = (
+            data.iloc[:, 1]
+                .astype(str)
+                .str.replace(r"[\ufeff\u200b\xa0]", "", regex=True)
+        )
         data[1] = (pandas.to_numeric(data.iloc[:, 1]) / 100).astype("float32")
         self.validation_data = data.iloc[0:validation_count]
         self.training_data = data.iloc[validation_count:]
@@ -143,7 +170,7 @@ class Engine:
         self.training_board_tensors = Board_T.to(self.device)
         self.training_eval_tensors = Eval_T.to(self.device)
 
-            
+           
     def train(self):
         self.network.train()
         loss_function = torch.nn.HuberLoss(delta = 1.0)
@@ -166,7 +193,7 @@ class Engine:
     def load(self):
         self.network = ChessNetwork()
         try:
-            weights = torch.load("ChessEval")
+            weights = torch.load("ChessEval.pth")
             self.network.load_state_dict(weights)
             self.network.eval()
         except:
@@ -177,7 +204,7 @@ class Engine:
 
     def save(self):
         weights = self.network.state_dict()
-        torch.save(weights, "ChessEval")
+        torch.save(weights, "ChessEval.pth")
 
     def validation(self):
         self.network.eval() # put network into eval mode
@@ -199,7 +226,7 @@ class Engine:
             print(MAE)
 
     def save_best_weights(self):
-        torch.save(self.best_weights, "ChessEval")
+        torch.save(self.best_weights, "ChessEval.pth")
 
     def FEN_to_flatboard(self, FEN):
         FEN = FEN.split(" ")
@@ -222,7 +249,7 @@ class Engine:
                 formatted_data[index] = 1
                 material_difference -= self.piece_value[char.upper()]
                 col += 1
-                
+               
 
         for char in FEN[2]:
             if char == "K":
