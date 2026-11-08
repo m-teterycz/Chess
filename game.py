@@ -61,14 +61,18 @@ class Game:
         piece_count = len(board.pieces)
         board.make_move(piece, move, move, board.get_piece_pos(piece))
         if piece.piece_type == "P":
+            if move[0] == 0 and piece.color == "W":
+                self.promote(piece, "Q", board)
+            elif move[0] == 7 and piece.color == "B":
+                self.promote(piece, "Q", board)
             board.halfmove = 0
         elif piece_count != len(board.pieces):
             board.halfmove = 0
         else:
             board.halfmove += 1
+        if self.turn == "B":
+            board.fullmove += 1
         self.turn = "B" if self.turn == "W" else "W"
-        board.fullmove += 1
-
 
     def check_and_display_gameend(self, board):
             if board.check_checkmate(self.turn):

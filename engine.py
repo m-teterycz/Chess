@@ -39,26 +39,46 @@ class Engine:
         self.load()
 
     def negated_minimax(self, board, turn, depth):
-        if depth == 0:
-            return self.evaluate_position(board, turn)
-        maxi = float('-inf')
-       
+        #should prob make this copying outside of the function
         board.PNGS_enabled = False
         board_copy = copy.copy(board)
         board_copy.positions = board.copy_board_pos()
         board_copy.pieces = board.pieces.copy()
         board.PNGS_enabled = True
-       
-        for piece in board_copy.pieces: # simulate a move
-            if piece.color == turn:
-                piece.get_legal_moves(board, turn)
-                for move in piece.moves:
-                    piece.move(board_copy, move, board_copy.get_piece_pos(piece))
-                    evaluation = self.evaluate_position(board_copy, turn)
-                    self.negated_minimax(board_copy, turn, depth - 1)
+        #-------------------
+        legal_moves = {}
 
-        # need to make and undo a move for efficiency. Prob should make the simulated move a Board function
-        # since im doing move unmove in get_legal_moves()
+        for piece in board_copy.pieces:
+            if piece.color == turn:
+                board_copy.get_legal_moves(turn, piece)
+                if piece.moves != [] and piece.color == turn:
+                    legal_moves[piece] = piece.moves
+
+        if len(legal_moves) == 0: # must be checkmate or stalemate
+            if board_copy.check_check(turn): # checkmate
+                return -100000
+            else: # stalemate
+                return 0
+
+        if depth == 0:
+            eval = self.evaluate_position(board_copy, turn)
+            if turn == "B":
+                eval = -eval
+            return eval
+
+        new_turn = "W" if turn == "B" else "W"
+        best_eval = float("-inf")
+
+        for piece in list(legal_moves.keys()): # simulate a move
+            if piece.color == turn:
+                for move in legal_moves[piece]:
+                    move_record = board_copy.simulate_move(board_copy, piece, turn, move)
+                    eval = -self.negated_minimax(board_copy, new_turn, depth - 1)
+                    board_copy.undo_simulated_move(board_copy, move_record)
+                    if best_eval < eval:
+                        best_eval = eval
+        return best_eval
+
 
     def get_best_move(self, board):
         while True:
@@ -161,9 +181,9 @@ class Engine:
         start_index = pos *  batch_size
         remaining_positions = len(self.training_boards) - start_index
         actual_chunk_size = min(remaining_positions, batch_size)
-        Boards = self.training_boards[start_index : start_index + actual_chunk_size]
+        Boards = np.array(self.training_boards[start_index : start_index + actual_chunk_size])
 
-        Board_T = torch.tensor(Boards).float()
+        Board_T = torch.from_numpy(Boards).float()
 
         Eval_T = torch.tensor(self.training_evals[start_index : start_index + actual_chunk_size] - self.training_material_differences[start_index : start_index + actual_chunk_size]).float()
 
@@ -193,7 +213,7 @@ class Engine:
     def load(self):
         self.network = ChessNetwork()
         try:
-            weights = torch.load("ChessEval.pth")
+            weights = torch.load("ChessEval.pth", map_location=self.device) # map location needed to prevent errors in loading if a pc doesnt have a cuda gpu.
             self.network.load_state_dict(weights)
             self.network.eval()
         except:
@@ -287,3 +307,9 @@ class Engine:
 
         del self.training_data
         del self.validation_data
+
+    def shuffle(self):
+        permutation = np.random.default_rng().permutation(len(self.training_boards))
+        self.training_boards = self.training_boards[permutation]
+        self.training_evals = self.training_evals[permutation]
+        self.training_material_differences = self.training_material_differences[permutation]

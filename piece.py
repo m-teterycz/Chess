@@ -70,7 +70,6 @@ class Piece:
         board.positions[self.row][self.col] = "."
         board.positions[self.t_row][self.t_col] = piece
 
-        self.moved = True
         self.move_count += 1
 
         return board.positions
@@ -107,7 +106,6 @@ class SlidingPiece(Piece):
 class Pawn(Piece):
     def __init__(self, color, square_length, piece_type, PNGS_enabled):
         super().__init__(color, square_length, piece_type, PNGS_enabled)
-        self.moved = False
         self.direction = -1 if self.color == "W" else 1
         self.en_passant_moves = []
         self.moves = []
@@ -120,7 +118,7 @@ class Pawn(Piece):
             if board.positions[board_pos[0]][board_pos[1] + i] != ".":
                 piece = board.positions[board_pos[0]][board_pos[1] + i]
                 if piece.color != self.color and piece.piece_type == "P" and piece == board.last_up2_pawn:
-                    self.en_passant_moves.append([board_pos[0] + direction, board_pos[1] + i])     
+                    self.en_passant_moves.append([board_pos[0] + direction, board_pos[1] + i])    
         self.moves.extend(self.en_passant_moves)
 
     def get_captures(self, board, board_pos):
@@ -154,7 +152,7 @@ class Pawn(Piece):
         forward_moves = []
         if board.positions[board_pos[0] + self.direction][board_pos[1]] == ".": # Forward moves
             forward_moves.append([board_pos[0] + self.direction, board_pos[1]])
-            if self.moved == False and board.positions[board_pos[0] + self.direction * 2][board_pos[1]] == ".":
+            if self.move_count == 0 and board.positions[board_pos[0] + self.direction * 2][board_pos[1]] == ".":
                 forward_moves.append([board_pos[0] + self.direction * 2, board_pos[1]])
 
         return forward_moves
@@ -310,7 +308,7 @@ class King(Piece):
         row, col = board_pos[0], board_pos[1]
 
         self.danger_squares = self.get_threats(board)
-        
+       
         for direction in directions:
             new_col = col + direction[1]
             new_row = row + direction[0]
@@ -323,7 +321,7 @@ class King(Piece):
                 pass
             elif result == "Friendly":
                 continue
-            
+           
             self.moves.append([new_row, new_col])
 
         self.moves.extend(self.get_castle(board))

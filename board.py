@@ -19,7 +19,7 @@ class Board:
     def char_to_col(self, char):
         return ord(char) - 97
 
-    
+   
     def create_board(self):
         self.squares = []
         self.pieces = []
@@ -87,7 +87,7 @@ class Board:
                         current_piece.move_count = 1
                     elif current_piece.piece_type == "R" and [row, col] == [7, 7]:
                         self.WKR = current_piece
-                        current_piece.move_count = 1   
+                        current_piece.move_count = 1  
                     elif current_piece.piece_type == "P" and row != 6:
                         current_piece.move_count = 1
 
@@ -123,7 +123,7 @@ class Board:
             self.fullmove = int(FEN[5])
 
             return None
-        
+       
         piece_format = "RNBQKBNR"
         for i,piece in enumerate(piece_format): # Generate the white side first
             current_piece = create_piece("W", piece, self.square_length, self.PNGS_enabled)
@@ -132,7 +132,7 @@ class Board:
             self.positions[7][i] = current_piece
             self.pieces.append(current_piece)
             self.pieces.append(current_pawn)
-        
+       
         for i,piece in enumerate(piece_format): # Generate the black side
             current_piece = create_piece("B", piece, self.square_length, self.PNGS_enabled)
             current_pawn = create_piece("B", "P", self.square_length, self.PNGS_enabled)
@@ -157,13 +157,22 @@ class Board:
             direction = 1
         else:
             direction = -1
-    
-        if piece.piece_type == "P" and new_pos in piece.en_passant_moves:
-            captured_piece = self.positions[new_pos[0] + direction][new_pos[1]]
-            self.pieces.remove(captured_piece)
-            self.positions[new_pos[0] + direction][new_pos[1]] = "."
 
-            return True
+        if self.last_up2_pawn == None:
+            return False
+
+        pos = self.get_piece_pos(self.last_up2_pawn)
+        if pos == None:
+            return False
+        else:
+            row, col = pos
+        if piece.piece_type == "P" and new_pos == [row - direction, col]:
+            captured_piece = self.positions[new_pos[0] + direction][new_pos[1]]
+            if captured_piece.color != piece.color:
+                self.pieces.remove(captured_piece)
+                self.positions[new_pos[0] + direction][new_pos[1]] = "."
+
+                return True
         return False
 
     def check_check(self, turn):
@@ -176,14 +185,14 @@ class Board:
                 king_pos = self.get_piece_pos(piece)
                 break
 
-        
+       
         for i in range(-1,2, 2): # Check for pawn threats
             if not(check_valid_bounds(king_pos[0] + direction, king_pos[1] + i)):
                 continue
             possible_enemy = self.positions[king_pos[0] + direction][king_pos[1] + i]
             if possible_enemy != "." and possible_enemy.color != turn and possible_enemy.piece_type == "P":
                 return True
-        
+       
         for direction in knight_directions:
             new_col = king_pos[1]
             new_row = king_pos[0]
@@ -196,7 +205,7 @@ class Board:
             piece = self.positions[new_row][new_col]
             if piece != "." and piece.color != turn and piece.piece_type == "N":
                 return True
-        
+       
         for direction in sliding_directions:
             iterations = 0
             diagonal = False
@@ -248,7 +257,7 @@ class Board:
                     move = [move_record[0], move_record[1]]
                     legal_moves.append(move)
                 board_copy.undo_simulated_move(board_copy, move_record)
-                
+               
             piece.moves = legal_moves
 
     def simulate_move(self, board_copy, piece, turn, move):
@@ -257,6 +266,7 @@ class Board:
         ep_piece = None
         is_en_passant = False
         is_castle = False
+        original_pawn = None
         original_last_up2_pawn = board_copy.last_up2_pawn
 
         board_copy.positions[piece_row][piece_col] = "."
@@ -271,11 +281,20 @@ class Board:
             is_en_passant = board_copy.check_enpassant_remove([move[0], move[1]], piece)
             if abs(piece_row - move[0]) == 2: # moved up 2 squares
                 board_copy.last_up2_pawn = piece
-                piece.moved = True # GET RID OF MOVED AND INSTEAD RELY ON move_count EVERYWHERE FIX IN PIECE.py
             else:
                 board_copy.last_up2_pawn = None
         else: # not enpassant
             board_copy.last_up2_pawn = None
+
+        if piece.piece_type == "P" and (move[0] == 7 or move[0] == 0):
+            promoted_piece = Queen(piece.color, self.square_length, "Q", False)
+            original_pawn = piece
+            board_copy.pieces.remove(piece)
+            board_copy.positions[move[0]][move[1]] = promoted_piece
+            board_copy.pieces.append(promoted_piece)
+            piece = promoted_piece
+            promotion = True
+
 
         if piece.piece_type == "K": # check if the opponent castled
             if piece_col + 1 != move[1] and piece_col - 1 != move[1] and piece_col != move[1]: # Must be a castle since he moved farther than one square
@@ -291,12 +310,12 @@ class Board:
                 rook.move_count = 1
 
         piece.move_count += 1
-        move_record = (move[0], move[1], piece, piece_row, piece_col, ep_piece, is_en_passant, enemy_piece, is_castle, original_last_up2_pawn)
+        move_record = (move[0], move[1], piece, piece_row, piece_col, ep_piece, is_en_passant, enemy_piece, is_castle, original_last_up2_pawn, piece.move_count - 1, original_pawn)
         return move_record
 
 
     def undo_simulated_move(self, board_copy, move_record):
-        move1, move2, piece, piece_row, piece_col, ep_piece, is_en_passant, enemy_piece, is_castle, original_last_up2_pawn = move_record
+        move1, move2, piece, piece_row, piece_col, ep_piece, is_en_passant, enemy_piece, is_castle, original_last_up2_pawn, move_count, original_pawn = move_record
         move = [move1, move2]
         direction = -1 if piece.color == "W" else 1
 
@@ -320,7 +339,13 @@ class Board:
         if enemy_piece != None:
             board_copy.positions[move[0]][move[1]] = enemy_piece
             board_copy.pieces.append(enemy_piece)
-        piece.move_count -= 1
+        if original_pawn != None:
+            board_copy.positions[piece_row][piece_col] = original_pawn
+            board_copy.pieces.remove(piece) 
+            board_copy.pieces.append(original_pawn)
+            original_pawn.move_count = 1
+
+        piece.move_count = move_count
         board_copy.last_up2_pawn = original_last_up2_pawn
 
     def make_move(self, selected_piece, possible_moves, clicked_square, piece_pos):
@@ -332,7 +357,7 @@ class Board:
 
         if [row, col] in possible_moves or [row, col] == possible_moves: # The player clicked a square which the piece can move to.
             if selected_piece.piece_type == "P": # Check if en passant happened
-                if [row, col] in selected_piece.en_passant_moves:     
+                if [row, col] in selected_piece.en_passant_moves:    
                     self.check_enpassant_remove([row, col], selected_piece)
 
             elif selected_piece.piece_type == "K" and [row, col] in selected_piece.get_castle(self):

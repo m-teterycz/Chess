@@ -4,6 +4,8 @@ from renderer import Renderer
 from game import Game
 from engine import Engine
 import time, math, random
+import cProfile
+import pstats
 
 WIDTH = 850
 HEIGHT = 800
@@ -26,21 +28,62 @@ renderer = Renderer(screen, WIDTH, HEIGHT)
 game = Game(screen, WIDTH, HEIGHT, engine_enabled, renderer)
 
 
-chunk_size = 50000
-validations_positions = 20000
-total_positions = 1000000
+
+chunk_size = 500000
+validations_positions = 100000
+total_positions = 5000000
 epochs = 30
 
-engine.get_data(r"C:\Users\user\Downloads\chessData.csv\chessData.csv", total_positions, validations_positions)
+engine.get_data(r"C:/Users/user/Downloads/chessData.csv/chessData.csv", total_positions, validations_positions)
 engine.bulkFEN_to_flatboard()
 engine.extract_evals()
 engine.data_to_validation_tensors()
+
+
+"""
+for get_best_move() smth like this needs to be done:
+generate legal moves for the engine
+save each pieces moves in a dict or smth
+simulate each move on the board
+call minimax with the opponenets turn since u made ur simulated move and depth - 1 since we looked one move ahead
+minus the eval since it come for the opponents perspective
+undo the move
+if eval is higher than best remember the piece and that move
+then return piece and move
+make that move on the game board
+shouldnt be that hard prob
+"""
+
+
+
+
+"""
+profiler = cProfile.Profile()
+profiler.enable()
+"""
+
+
 for epoch in range(epochs):
     chunks = math.ceil(len(engine.training_boards) / chunk_size)
     for i in range(chunks):
+        start = time.time()
+        engine.shuffle()
+        print(f"Shuffle time {time.time() - start}")
+        start = time.time()
         engine.data_to_training_tensors(chunk_size, i)
+        print(f"time taken for data to tensors{time.time() - start}")
+        start = time.time()
         engine.train()
+        print(f"time taken to train {time.time() - start}")
     engine.validation()
+"""
+profiler.disable()
+
+stats = pstats.Stats(profiler)
+stats.sort_stats("cumulative")
+stats.print_stats(30)
+"""
+
 engine.save_best_weights()
 
 
