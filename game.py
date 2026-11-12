@@ -2,7 +2,7 @@ import pygame, math
 from piece import create_piece, check_valid_bounds
 
 class Game:
-    def __init__(self, screen, WIDTH, HEIGHT, engine_enabled, renderer):
+    def __init__(self, screen, WIDTH, HEIGHT, engine_enabled, renderer, move_generator):
         self.my_font = pygame.font.SysFont('Comic Sans MS', 30)
         self.screen = screen
         self.turn = "W"
@@ -11,51 +11,57 @@ class Game:
         self.engine_enabled = engine_enabled
         self.selected_piece = None
         self.renderer = renderer
+        self.move_generator = move_generator
+        self.square_length = min(WIDTH, HEIGHT) // 8
+        self.possible_moves = []
 
-    def reset_square_colors(self, board):
-        for i in range(len(board.squares)):
-            for j in range(len(board.squares)):
-                board.squares[i][j].displayed_color = board.squares[i][j].color   
+    def reset_square_colors(self):
+        for square in self.renderer.squares:
+            square.displayed_color = square.color
 
     def get_clicked_piece(self, mouse_pos, board):
-        self.col = math.floor(mouse_pos[0] / board.square_length)
-        self.row = math.floor(mouse_pos[1] / board.square_length)
-        if not(check_valid_bounds(self.col, self.row)):
-            return None
-        square = board.squares[self.row][self.col]
+        self.col = math.floor(mouse_pos[0] / self.square_length)
+        self.row = math.floor(mouse_pos[1] / self.square_length)
+        self.click_pos = self.col + self.row * 16
+        piece = board.piece_at(self.click_pos)
 
-        if board.positions[self.row][self.col] != "." and board.positions[self.row][self.col].color == self.turn:
-            self.selected_piece = board.positions[self.row][self.col]
-            self.piece_row, self.piece_col = self.row, self.col
+        if piece != "." and piece.isupper() == self.turn.isupper(): # Check if its the players turn
+            self.piece_pos = self.click_pos
+            self.selected_piece = piece
+            self.possible_moves = self.move_generator.generate_moves(self.piece_pos, piece, board)
 
-            self.possible_moves = self.selected_piece.get_moves(board, [self.row, self.col])
-            board.get_legal_moves(self.turn, self.selected_piece)
-            self.possible_moves = self.selected_piece.moves
-            self.reset_square_colors(board)
+            
+            self.reset_square_colors()
             for move in self.possible_moves:
-                square = board.squares[move[0]][move[1]]
+                row = move // 16
+                col = move % 16
+                move = row * 8 + col
+
+                square = self.renderer.squares[move]
                 square.displayed_color = square.highlighted_color
-                    
+
         else:
-            self.reset_square_colors(board)
+            self.reset_square_colors()
 
     def make_move(self, board):
-        piece_count = len(board.pieces)
         if self.selected_piece == None:
             return None
-        if board.make_move(self.selected_piece, self.possible_moves, [self.row, self.col], [self.piece_row, self.piece_col]):
-            self.possible_moves = []
-            self.reset_square_colors(board)
-            self.turn = "B" if self.turn == "W" else "W"
 
-            if self.selected_piece.piece_type == "P":
-                board.halfmove = 0
-            elif piece_count != len(board.pieces):
-                board.halfmove = 0
-            else:
-                board.halfmove += 1
-            board.fullmove += 1
-            return True
+        if self.click_pos in self.possible_moves:
+            board.move_to(self.piece_pos, self.click_pos)
+        #self.reset_square_colors()
+        #self.turn = "B" if self.turn == "W" else "W"
+
+        """
+        if self.selected_piece.piece_type == "P":
+            board.halfmove = 0
+        elif piece_count != len(board.pieces):
+            board.halfmove = 0
+        else:
+            board.halfmove += 1
+        board.fullmove += 1
+        return True
+        """
 
     def make_engine_move(self, piece, move, board):
         piece_count = len(board.pieces)
@@ -80,10 +86,13 @@ class Game:
                 text_surface = self.my_font.render(f'Checkmate: {won} wins!', True, (0, 0, 0))
                 rect = text_surface.get_rect(center=(self.WIDTH // 2, self.HEIGHT // 2))
                 self.screen.blit(text_surface, rect)
+                return True
             elif board.check_stalemate(self.turn):
                 text_surface = self.my_font.render(f'Stalemate', True, (0, 0, 0))
                 rect = text_surface.get_rect(center=(self.WIDTH // 2, self.HEIGHT // 2))
                 self.screen.blit(text_surface, rect)
+                return True
+            return False
 
     def check_promotion(self, board):
         for piece in board.pieces:

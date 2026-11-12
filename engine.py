@@ -37,15 +37,9 @@ class Engine:
         self.HEIGHT = HEIGHT
         self.smallest_MAE = 100
         self.load()
+        self.network.eval()
 
-    def negated_minimax(self, board, turn, depth):
-        #should prob make this copying outside of the function
-        board.PNGS_enabled = False
-        board_copy = copy.copy(board)
-        board_copy.positions = board.copy_board_pos()
-        board_copy.pieces = board.pieces.copy()
-        board.PNGS_enabled = True
-        #-------------------
+    def negated_minimax(self, board_copy, turn, depth, alpha, beta):
         legal_moves = {}
 
         for piece in board_copy.pieces:
@@ -70,23 +64,39 @@ class Engine:
         best_eval = float("-inf")
 
         for piece in list(legal_moves.keys()): # simulate a move
-            if piece.color == turn:
-                for move in legal_moves[piece]:
-                    move_record = board_copy.simulate_move(board_copy, piece, turn, move)
-                    eval = -self.negated_minimax(board_copy, new_turn, depth - 1)
-                    board_copy.undo_simulated_move(board_copy, move_record)
-                    if best_eval < eval:
-                        best_eval = eval
+            for move in legal_moves[piece]:
+                move_record = board_copy.simulate_move(board_copy, piece, turn, move)
+                eval = -self.negated_minimax(board_copy, new_turn, depth - 1, alpha, beta)
+                board_copy.undo_simulated_move(board_copy, move_record)
+                best_eval = max(best_eval, eval)
+                beta = min(eval, beta)
+    
         return best_eval
 
 
-    def get_best_move(self, board):
-        while True:
-            piece = random.choice(self.engine_pieces)
-            board.get_legal_moves(self.engine_color, piece)
-            if len(piece.moves) != 0:
-                break
-        return piece, random.choice(piece.moves)
+    def get_best_move(self, board_copy, turn, depth):
+        piece_move = {}
+        op_turn = "W" if turn == "B" else "W"
+        best_eval = float("-inf")
+        best_move = best_piece = None
+       
+        for piece in board_copy.pieces:
+            if piece.color == turn:
+                board_copy.get_legal_moves(turn, piece)
+                piece_move[piece] = piece.moves
+       
+        for piece in list(piece_move.keys()):
+            for move in piece_move[piece]:
+                move_record = board_copy.simulate_move(board_copy, piece, turn, move)
+                eval = -self.negated_minimax(board_copy, op_turn, depth - 1)
+                board_copy.undo_simulated_move(board_copy, move_record)
+                if eval > best_eval:
+                    best_eval = eval
+                    best_move = move
+                    best_piece = piece
+       
+        return best_piece, best_move
+               
 
     def get_all_pieces(self, board):
         self.engine_pieces = []
@@ -108,6 +118,7 @@ class Engine:
             return self.network(T.float()) + white_value - black_value
 
     def board_to_tensor_boards(self, board):
+            wk = bk = None
             empty_boards = []
             castling_rights = [0, 0, 0, 0]
             white_value = 0
@@ -137,12 +148,12 @@ class Engine:
                         if piece.piece_type == "K":
                             bk = piece
 
-            if wk.move_count == 0:
+            if wk != None and wk.move_count == 0:
                 if board.WKR is not None and board.WKR.move_count == 0 and board.positions[7][7] == board.WKR:
                     castling_rights[0] = 1
                 if board.WQR is not None and board.WQR.move_count == 0 and board.positions[7][0] == board.WQR:
                     castling_rights[1] = 1
-            if bk.move_count == 0:
+            if bk != None and bk.move_count == 0:
                 if board.BKR is not None and board.BKR.move_count == 0 and board.positions[0][7] == board.BKR:
                     castling_rights[2] = 1
                 if board.BQR is not None and board.BQR.move_count == 0 and board.positions[0][0] == board.BQR:
