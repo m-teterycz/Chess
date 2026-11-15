@@ -2,7 +2,9 @@ import pygame, math
 
 
 def boardindex_to_screenpos(boardindex, square_length):  # Col and Row swapped since in list terms it is (y,x) but screen is (x,y)
-    return boardindex[1] * square_length + square_length // 2, boardindex[0] * square_length + square_length // 2
+    col = boardindex // 8
+    row = boardindex % 8
+    return row * square_length + square_length // 2, col * square_length + square_length // 2
 
 class Renderer:
     def __init__(self, surface, WIDTH, HEIGHT):
@@ -51,14 +53,13 @@ class Renderer:
 
     def draw(self, board):
         self.draw_squares()
-        for i in range(0, 128, 16):
-            for j in range(8):
-                piece = board.squares[i + j]
-                if piece != ".":
-                    screen_pos = boardindex_to_screenpos([i // 16, j], self.square_length)
-                    imagerect, image = self.create_image(piece)
-                    imagerect.center = screen_pos
-                    self.surface.blit(image, imagerect)
+        for i in range(64):
+            piece = board[i]
+            if piece != ".":
+                screen_pos = boardindex_to_screenpos(i, self.square_length)
+                imagerect, image = self.create_image(piece)
+                imagerect.center = screen_pos
+                self.surface.blit(image, imagerect)
 
     def draw_promote_screen(self):
         smallest_dimension = min(self.WIDTH, self.HEIGHT)

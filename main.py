@@ -1,10 +1,7 @@
 import pygame
 from renderer import Renderer
 from game import Game
-from engine import Engine
-import time, math, random
-import copy
-import chess_engine
+from engine_connection import ChessEngine
 
 WIDTH = 850
 HEIGHT = 800
@@ -22,10 +19,9 @@ engine_enabled = False
 
 renderer = Renderer(screen, WIDTH, HEIGHT)
 
-Board1 = chess_engine.Board()
-Move_Generator = chess_engine.MoveGenerator()
-
-game = Game(screen, WIDTH, HEIGHT, engine_enabled, renderer, Move_Generator)
+engine = ChessEngine()
+print(engine.get_board())
+game = Game(screen, WIDTH, HEIGHT, engine_enabled, renderer, engine)
 
 game.turn = "W"
 running = True
@@ -41,18 +37,19 @@ while running:
             running = False
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
+                mouse_pos = event.pos
                 if game.engine_enabled:
                     if game.turn == player_color:
-                        mouse_pos = event.pos
-                        game.get_clicked_piece(mouse_pos, Board1)
-                        game.make_move(Board1)
+                        game.get_clicked_piece(mouse_pos, engine)
+                        game.make_move(engine)
                         move_made = True
 
                 else:
-                    mouse_pos = event.pos
-                    game.get_clicked_piece(mouse_pos, Board1)
-                    game.make_move(Board1)
+                    game.get_clicked_piece(mouse_pos, engine)
+                    game.make_move(engine)
                     move_made = True
+            print(f"Black is attacking {engine.checkAttackedSquare(32, 'b')}")
+            print(f"White is attacking {engine.checkAttackedSquare(32, 'W')}")
     """
         if move_made:
             game_over = game.check_and_display_gameend(Board1)
@@ -66,7 +63,7 @@ while running:
         game.promote(promoted_piece, choice, Board1)
     
     """
-    renderer.draw(Board1)
+    renderer.draw(engine.get_board())
     #renderer.draw_eval_bar(0)
     
 

@@ -1,5 +1,4 @@
 import pygame, math
-from piece import create_piece, check_valid_bounds
 
 class Game:
     def __init__(self, screen, WIDTH, HEIGHT, engine_enabled, renderer, move_generator):
@@ -20,37 +19,40 @@ class Game:
             square.displayed_color = square.color
 
     def get_clicked_piece(self, mouse_pos, board):
+        squares = board.get_board()
+
         self.col = math.floor(mouse_pos[0] / self.square_length)
         self.row = math.floor(mouse_pos[1] / self.square_length)
-        self.click_pos = self.col + self.row * 16
-        piece = board.piece_at(self.click_pos)
+        self.click_pos = self.col + self.row * 8
 
-        if piece != "." and piece.isupper() == self.turn.isupper(): # Check if its the players turn
+        piece = squares[self.click_pos]
+
+        if piece != "." and piece.isupper() == self.turn.isupper(): # Check if a piece is selected and its the players turn
             self.piece_pos = self.click_pos
             self.selected_piece = piece
-            self.possible_moves = self.move_generator.generate_moves(self.piece_pos, piece, board)
+            self.possible_moves = self.move_generator.generate_moves(self.piece_pos)
 
             
             self.reset_square_colors()
             for move in self.possible_moves:
-                row = move // 16
-                col = move % 16
-                move = row * 8 + col
-
                 square = self.renderer.squares[move]
                 square.displayed_color = square.highlighted_color
 
-        else:
+        elif piece == "." and self.click_pos not in self.possible_moves:
             self.reset_square_colors()
+            self.selected_piece = None
+            self.possible_moves = []
 
     def make_move(self, board):
         if self.selected_piece == None:
-            return None
+            return False
 
-        if self.click_pos in self.possible_moves:
-            board.move_to(self.piece_pos, self.click_pos)
-        #self.reset_square_colors()
-        #self.turn = "B" if self.turn == "W" else "W"
+        if self.click_pos not in self.possible_moves:
+            return False
+
+        board.move_to(self.piece_pos, self.click_pos)
+        self.reset_square_colors()
+        self.turn = "b" if self.turn == "W" else "W"
 
         """
         if self.selected_piece.piece_type == "P":
@@ -69,16 +71,16 @@ class Game:
         if piece.piece_type == "P":
             if move[0] == 0 and piece.color == "W":
                 self.promote(piece, "Q", board)
-            elif move[0] == 7 and piece.color == "B":
+            elif move[0] == 7 and piece.color == "b":
                 self.promote(piece, "Q", board)
             board.halfmove = 0
         elif piece_count != len(board.pieces):
             board.halfmove = 0
         else:
             board.halfmove += 1
-        if self.turn == "B":
+        if self.turn == "b":
             board.fullmove += 1
-        self.turn = "B" if self.turn == "W" else "W"
+        self.turn = "b" if self.turn == "W" else "W"
 
     def check_and_display_gameend(self, board):
             if board.check_checkmate(self.turn):

@@ -9,6 +9,9 @@ class MoveGenerator{
     public:
         bool checkEnemy(char piece1, char piece2);
         bool checkValidMove(int pos, int move, const Board &board);
+        bool checkValidBounds(int destination);
+        bool isSquareAttacked(int king_pos, char attacking_color, const Board &board);
+        char getPieceColor(int pos, const Board& board);
         std::vector<int> generateValidSlidingMoves(int pos, std::span<const int> offsets, const Board &board);
         std::vector<int> generateValidHopMoves(int pos, std::span<const int> offsets, const Board &board);
         std::vector<int> generatePseudoLegalMoves(int pos, char type, const Board &board);
