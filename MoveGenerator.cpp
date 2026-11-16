@@ -161,12 +161,73 @@ std::vector<int> MoveGenerator::generateValidHopMoves(int pos, std::span<const i
         }
     }
     return moves;
-}  
+}
+
+std::vector<int> MoveGenerator::generateCastlingMoves(int pos, const Board &board){
+    std::vector<int> moves;
+
+    char king_color = getPieceColor(pos, board);
+    char attacking_color = (king_color == 'b') ? 'W' : 'b';
+
+    if (king_color == 'b' && pos == 4 && board.squares[4] == 'k') {
+
+        if (board.black_castle_right &&
+            board.squares[7] == 'r' &&
+            board.squares[5] == '.' &&
+            board.squares[6] == '.' &&
+            !isSquareAttacked(4, attacking_color, board) &&
+            !isSquareAttacked(5, attacking_color, board) &&
+            !isSquareAttacked(6, attacking_color, board)) {
+
+            moves.push_back(6);
+        }
+
+        if (board.black_castle_left &&
+            board.squares[0] == 'r' &&
+            board.squares[1] == '.' &&
+            board.squares[2] == '.' &&
+            board.squares[3] == '.' &&
+            !isSquareAttacked(4, attacking_color, board) &&
+            !isSquareAttacked(3, attacking_color, board) &&
+            !isSquareAttacked(2, attacking_color, board)) {
+
+            moves.push_back(2);
+        }
+    }
+
+    else if (king_color == 'W' && pos == 116 && board.squares[116] == 'K') {
+
+        if (board.white_castle_right &&
+            board.squares[119] == 'R' &&
+            board.squares[117] == '.' &&
+            board.squares[118] == '.' &&
+            !isSquareAttacked(116, attacking_color, board) &&
+            !isSquareAttacked(117, attacking_color, board) &&
+            !isSquareAttacked(118, attacking_color, board)) {
+
+            moves.push_back(118);
+        }
+
+        if (board.white_castle_left &&
+            board.squares[112] == 'R' &&
+            board.squares[113] == '.' &&
+            board.squares[114] == '.' &&
+            board.squares[115] == '.' &&
+            !isSquareAttacked(116, attacking_color, board) &&
+            !isSquareAttacked(115, attacking_color, board) &&
+            !isSquareAttacked(114, attacking_color, board)) {
+
+            moves.push_back(114);
+        }
+    }
+
+    return moves;
+}
 
 std::vector<int> MoveGenerator::generatePseudoLegalMoves(int pos, char type, const Board &board){
     std::vector<int> moves;
-    if (type == 'N' || type == 'n'){ // Knight
-        const std::array<int, 8> offsets = { // hardcoded offsets make it easier to implement and faster to generate moves
+    if (type == 'N' || type == 'n'){
+        const std::array<int, 8> offsets = {
             14, 18, 31, 33,
             -14, -18, -31, -33
         };      
@@ -195,7 +256,14 @@ std::vector<int> MoveGenerator::generatePseudoLegalMoves(int pos, char type, con
         const std::array<int, 8> offsets = {
             1, 16, -1, -16, 15, 17, -15, -17
         };
-        return generateValidHopMoves(pos, offsets, board);
+        
+        std::vector<int> moves = generateValidHopMoves(pos, offsets, board);
+        std::vector<int> castling = generateCastlingMoves(pos, board);
+        moves.insert(moves.end(), castling.begin(), castling.end());
+
+        return moves;
+
+        
     }
     if (type == 'P' || type == 'p'){
         std::vector<int> moves;
@@ -206,18 +274,17 @@ std::vector<int> MoveGenerator::generatePseudoLegalMoves(int pos, char type, con
         
         // Normal moves ahead
         destination = pos + 16 * direction;
-        if (checkValidBounds(destination) && board.squares[destination] == '.'){ // looking one square ahead
+        if (checkValidBounds(destination) && board.squares[destination] == '.'){
             moves.push_back(destination);
             destination = pos + 32 * direction;
-            if (checkValidBounds(destination) && ((pos / 16 == start_row) && (board.squares[destination] == '.'))){ // looking two squares ahead and checking if the pawn is allowed to do this
+            if (checkValidBounds(destination) && ((pos / 16 == start_row) && (board.squares[destination] == '.'))){
                 moves.push_back(destination);
             }
         }
 
-        // Diagonal Captures
         for (const int &attack_offset : attacking_offsets){
             destination = pos + attack_offset * direction;
-            if (checkValidBounds(destination) && ((islower(board.squares[destination]) && direction == -1) || (isupper(board.squares[destination]) && direction == 1))){ // white capture black piece || black capture white piece
+            if (checkValidBounds(destination) && ((islower(board.squares[destination]) && direction == -1) || (isupper(board.squares[destination]) && direction == 1))){
                 moves.push_back(destination);
             }
         }
