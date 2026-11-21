@@ -1,4 +1,4 @@
-import pygame
+import pygame, time
 from renderer import Renderer
 from game import Game
 from engine_connection import ChessEngine
@@ -20,7 +20,6 @@ engine_enabled = False
 renderer = Renderer(screen, WIDTH, HEIGHT)
 
 engine = ChessEngine()
-print(engine.get_board())
 game = Game(screen, WIDTH, HEIGHT, engine_enabled, renderer, engine)
 
 game.turn = "W"
@@ -28,6 +27,11 @@ running = True
 move_made = False
 game_over = False
 game.engine_enabled = False
+
+start = time.time_ns()
+print(engine.perft(5))
+print((time.time_ns() - start) / (10 ** 9))
+
 while running:
     clock.tick(60)
     screen.fill((128, 128, 128))
@@ -41,28 +45,39 @@ while running:
                 if game.engine_enabled:
                     if game.turn == player_color:
                         game.get_clicked_piece(mouse_pos, engine)
-                        game.make_move(engine)
+
+                        if game.check_promotion():
+                            renderer.draw(engine.get_board())
+                            choice = game.handle_promote_screen()
+
+                            if game.selected_piece == "p":
+                                choice = choice.lower()
+
+                            game.make_move(engine, choice)
+                        else:
+                            game.make_move(engine)
                         move_made = True
 
                 else:
                     game.get_clicked_piece(mouse_pos, engine)
-                    game.make_move(engine)
+
+                    if game.check_promotion():
+                        renderer.draw(engine.get_board())
+                        choice = game.handle_promote_screen()
+
+                        if game.selected_piece == "p":
+                            choice = choice.lower()
+
+                        game.make_move(engine, choice)
+                    else:
+                        game.make_move(engine)
                     move_made = True
-            print(f"Black is attacking {engine.checkAttackedSquare(32, 'b')}")
-            print(f"White is attacking {engine.checkAttackedSquare(32, 'W')}")
     """
         if move_made:
             game_over = game.check_and_display_gameend(Board1)
             move_made = False
     """
-    """
-    if game.check_promotion(Board1) != None:
-        promoted_piece = game.check_promotion(Board1)
-        renderer.draw(Board1)
-        choice = game.handle_promote_screen()
-        game.promote(promoted_piece, choice, Board1)
     
-    """
     renderer.draw(engine.get_board())
     #renderer.draw_eval_bar(0)
     

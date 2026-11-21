@@ -43,27 +43,25 @@ class Game:
             self.selected_piece = None
             self.possible_moves = []
 
-    def make_move(self, board):
-        if self.selected_piece == None:
+    def make_move(self, board, promotion='.'):
+        if self.selected_piece is None:
             return False
 
         if self.click_pos not in self.possible_moves:
             return False
 
-        board.move_to(self.piece_pos, self.click_pos)
+        # Ask C++ to make the move
+        if not board.move_to(self.piece_pos, self.click_pos, promotion):
+            return False
+
+        # Only execute these if C++ accepted the move
         self.reset_square_colors()
         self.turn = "b" if self.turn == "W" else "W"
 
-        """
-        if self.selected_piece.piece_type == "P":
-            board.halfmove = 0
-        elif piece_count != len(board.pieces):
-            board.halfmove = 0
-        else:
-            board.halfmove += 1
-        board.fullmove += 1
+        self.selected_piece = None
+        self.possible_moves = []
+
         return True
-        """
 
     def make_engine_move(self, piece, move, board):
         piece_count = len(board.pieces)
@@ -96,22 +94,22 @@ class Game:
                 return True
             return False
 
-    def check_promotion(self, board):
-        for piece in board.pieces:
-            piece_pos = board.get_piece_pos(piece)
-            if piece.piece_type == "P" and (piece_pos[0] == 7 or piece_pos[0] == 0):
-                return piece
+    def check_promotion(self):
+        if self.selected_piece not in ("P", "p"):
+            return False
 
+        if self.click_pos not in self.possible_moves:
+            return False
 
-    def promote(self, piece_to_promote, selected_piece, board):
-        row, col = board.get_piece_pos(piece_to_promote)
-        new_piece = create_piece(piece_to_promote.color, selected_piece, board.square_length, board.PNGS_enabled)
-        board.pieces.remove(piece_to_promote)
-        board.pieces.append(new_piece)
-        board.positions[row][col] = new_piece
+        row = self.click_pos // 8
+
+        return ((self.selected_piece == "P" and row == 0) or (self.selected_piece == "p" and row == 7))
 
     def handle_promote_screen(self):
         queen_rect, rook_rect, bishop_rect, knight_rect = self.renderer.draw_promote_screen()
+
+        pygame.display.flip()  # Actually display the promotion screen
+
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:

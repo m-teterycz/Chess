@@ -4,13 +4,14 @@
 
 #include "Board.hpp"
 #include "MoveGenerator.hpp"
+#include "Move.hpp"
 
 bool onBoard(int pos) {
     return pos >= 0 && pos < 128 && (pos & 0x88) == 0;
 }
 
 int main() {
-    Board board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    Board board("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1");
     MoveGenerator generator;
 
     std::string command;
@@ -36,37 +37,60 @@ int main() {
             }
 
             char piece = board.squares[pos];
-            auto moves = generator.generatePseudoLegalMoves(
+            auto moves = generator.generateLegalMoves(
                 pos, piece, board
             );
 
-            for (int move : moves) {
-                std::cout << move << ' ';
+            for (Move move : moves) {
+                std::cout << move.to << ' ';
             }
             std::cout << '\n' << std::flush;
         }
 
         else if (command == "MOVE") {
             int from, to;
-            if (!(std::cin >> from >> to)) break;
+            char promotion;
 
+            if (!(std::cin >> from >> to >> promotion)) break;
+
+            // Check that the positions are valid
             if (!onBoard(from) || !onBoard(to) ||
                 board.squares[from] == '.') {
                 std::cout << "ERR\n" << std::flush;
                 continue;
             }
 
-            auto moves = generator.generatePseudoLegalMoves(
-                from, board.squares[from], board
-            );
-
-            if (std::find(moves.begin(), moves.end(), to)
-                == moves.end()) {
+            // Check that the piece belongs to the current player
+            if (generator.getPieceColor(from, board) != board.turn) {
                 std::cout << "ERR\n" << std::flush;
                 continue;
             }
 
-            board.moveTo(from, to);
+            // Generate legal moves
+            auto moves = generator.generateLegalMoves(
+                from, board.squares[from], board
+            );
+
+            // Find a move matching the requested destination and promotion
+            auto it = std::find_if(
+                moves.begin(),
+                moves.end(),
+                [from, to, promotion](const Move& move) {
+                    return move.from == from &&
+                        move.to == to &&
+                        move.promotion == promotion;
+                }
+            );
+
+            // Check whether the move exists
+            if (it == moves.end()) {
+                std::cout << "ERR\n" << std::flush;
+                continue;
+            }
+
+            // Execute the move
+            board.moveTo(*it);
+
             std::cout << "OK\n" << std::flush;
         }
 
@@ -87,6 +111,21 @@ int main() {
             );
 
             std::cout << (attacked ? "1" : "0") << '\n' << std::flush;
+        }
+
+        else if (command == "PERFT") {
+            int depth;
+
+            if (!(std::cin >> depth)) break;
+
+            if (depth < 0 || depth > 6) {
+                std::cout << "ERR\n" << std::flush;
+                continue;
+            }
+
+            auto nodes = generator.perft(depth, board);
+
+            std::cout << nodes << '\n' << std::flush;
         }
 
         else if (command == "QUIT") {

@@ -53,8 +53,8 @@ class ChessEngine:
 
         return [to64(int(x)) for x in response.split()]
 
-    def move_to(self, start, end):
-        command = f"MOVE {to128(start)} {to128(end)}"
+    def move_to(self, start, end, promotion = '.'):
+        command = f"MOVE {to128(start)} {to128(end)} {promotion}"
         return self.send(command) == "OK"
 
     def checkAttackedSquare(self, pos, attacking_color):
@@ -65,6 +65,15 @@ class ChessEngine:
             raise ValueError("Invalid position or attacking colour")
 
         return response == "1"
+
+    def perft(self, depth):
+        response = self.send(f"PERFT {depth}")
+
+        if response == "ERR":
+            raise ValueError("Invalid perft depth")
+
+        return int(response)        
+
 
     def close(self):
         self.send("QUIT")

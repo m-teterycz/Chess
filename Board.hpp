@@ -1,8 +1,17 @@
 #pragma once
 #include <array>
 #include <string>
+#include "Move.hpp"
 
 class Board{
+    private:
+        bool checkEnemy(char piece1, char piece2);
+        void updateCastleRights(char piece, int from);
+        void moveCastlingRook(int from, int to);
+        void updateEnPassantSquare(char piece, int from, int to);
+        void handleEnPassantCapture(int from, int to);
+        int boardCoordsToIndex(std::string char_pos);
+
     public:
         std::array<char, 128> squares;
         char turn;
@@ -13,10 +22,8 @@ class Board{
         bool white_castle_right;
         bool black_castle_left;
         bool black_castle_right;
-
+        
         Board(std::string Fen);
-        void display();
-        void moveTo(int from, int to);
-        void alterCastleValidity(char piece, int from);
-        void handleCastleMove(int from, int to);
+        void display() const;
+        void moveTo(Move move);
 };

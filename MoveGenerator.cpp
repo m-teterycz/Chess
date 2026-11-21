@@ -1,10 +1,10 @@
 #include "MoveGenerator.hpp"
 #include "Board.hpp"
+#include "Move.hpp"
 
 #include <vector>
 #include <array>
 #include <cctype>
-
 
 bool MoveGenerator::checkEnemy(char piece1, char piece2){
     if (piece1 != '.' && piece2 != '.'){
@@ -133,14 +133,14 @@ bool MoveGenerator::isSquareAttacked(int pos, char attacking_color, const Board&
 }
 
 
-std::vector<int> MoveGenerator::generateValidSlidingMoves(int pos, std::span<const int> offsets, const Board &board){
-    std::vector<int> moves;
+std::vector<Move> MoveGenerator::generateValidSlidingMoves(int pos, std::span<const int> offsets, const Board &board){
+    std::vector<Move> moves;
     for (const int offset : offsets){
         int move = pos;
         while (true) {
             move += offset;
             if (checkValidMove(pos, move, board)){
-                moves.push_back(move);
+                moves.push_back({pos, move});
                 if (checkEnemy(board.squares[move], board.squares[pos])){ // If the piece is an enemy add the move then break out since we cant move past it
                     break;
                 }
@@ -152,19 +152,19 @@ std::vector<int> MoveGenerator::generateValidSlidingMoves(int pos, std::span<con
     return moves;
 }
 
-std::vector<int> MoveGenerator::generateValidHopMoves(int pos, std::span<const int> offsets, const Board &board){
-    std::vector<int> moves;
+std::vector<Move> MoveGenerator::generateValidHopMoves(int pos, std::span<const int> offsets, const Board &board){
+    std::vector<Move> moves;
     for (int offset : offsets){
         int move = pos + offset;
         if (checkValidMove(pos, move, board)){
-            moves.push_back(move);
+            moves.push_back({pos, move});
         }
     }
     return moves;
 }
 
-std::vector<int> MoveGenerator::generateCastlingMoves(int pos, const Board &board){
-    std::vector<int> moves;
+std::vector<Move> MoveGenerator::generateCastlingMoves(int pos, const Board &board){
+    std::vector<Move> moves;
 
     char king_color = getPieceColor(pos, board);
     char attacking_color = (king_color == 'b') ? 'W' : 'b';
@@ -179,7 +179,7 @@ std::vector<int> MoveGenerator::generateCastlingMoves(int pos, const Board &boar
             !isSquareAttacked(5, attacking_color, board) &&
             !isSquareAttacked(6, attacking_color, board)) {
 
-            moves.push_back(6);
+            moves.push_back({pos, 6});
         }
 
         if (board.black_castle_left &&
@@ -191,7 +191,7 @@ std::vector<int> MoveGenerator::generateCastlingMoves(int pos, const Board &boar
             !isSquareAttacked(3, attacking_color, board) &&
             !isSquareAttacked(2, attacking_color, board)) {
 
-            moves.push_back(2);
+            moves.push_back({pos, 2});
         }
     }
 
@@ -205,7 +205,7 @@ std::vector<int> MoveGenerator::generateCastlingMoves(int pos, const Board &boar
             !isSquareAttacked(117, attacking_color, board) &&
             !isSquareAttacked(118, attacking_color, board)) {
 
-            moves.push_back(118);
+            moves.push_back({pos, 118});
         }
 
         if (board.white_castle_left &&
@@ -217,15 +217,15 @@ std::vector<int> MoveGenerator::generateCastlingMoves(int pos, const Board &boar
             !isSquareAttacked(115, attacking_color, board) &&
             !isSquareAttacked(114, attacking_color, board)) {
 
-            moves.push_back(114);
+            moves.push_back({pos, 114});
         }
     }
 
     return moves;
 }
 
-std::vector<int> MoveGenerator::generatePseudoLegalMoves(int pos, char type, const Board &board){
-    std::vector<int> moves;
+std::vector<Move> MoveGenerator::generatePseudoLegalMoves(int pos, char type, const Board &board){
+    std::vector<Move> moves;
     if (type == 'N' || type == 'n'){
         const std::array<int, 8> offsets = {
             14, 18, 31, 33,
@@ -257,8 +257,8 @@ std::vector<int> MoveGenerator::generatePseudoLegalMoves(int pos, char type, con
             1, 16, -1, -16, 15, 17, -15, -17
         };
         
-        std::vector<int> moves = generateValidHopMoves(pos, offsets, board);
-        std::vector<int> castling = generateCastlingMoves(pos, board);
+        std::vector<Move> moves = generateValidHopMoves(pos, offsets, board);
+        std::vector<Move> castling = generateCastlingMoves(pos, board);
         moves.insert(moves.end(), castling.begin(), castling.end());
 
         return moves;
@@ -266,7 +266,22 @@ std::vector<int> MoveGenerator::generatePseudoLegalMoves(int pos, char type, con
         
     }
     if (type == 'P' || type == 'p'){
-        std::vector<int> moves;
+        std::vector<Move> moves;
+
+        auto addPawnMove = [&](int destination) {
+            int promotion_row = (type == 'P') ? 0 : 7;
+
+            if (destination / 16 == promotion_row) {
+                const char* promotions = (type == 'P') ? "QRBN" : "qrbn";
+
+                for (int i = 0; i < 4; i++) {
+                    moves.push_back({pos, destination, promotions[i]});
+                }
+            } else {
+                moves.push_back({pos, destination});
+            }
+        };
+
         std::array<int, 2> attacking_offsets = {15, 17};
         int destination;
         int direction = (isupper(type)) ? -1 : 1; // works to determine color later
@@ -275,20 +290,74 @@ std::vector<int> MoveGenerator::generatePseudoLegalMoves(int pos, char type, con
         // Normal moves ahead
         destination = pos + 16 * direction;
         if (checkValidBounds(destination) && board.squares[destination] == '.'){
-            moves.push_back(destination);
+            addPawnMove(destination);
             destination = pos + 32 * direction;
             if (checkValidBounds(destination) && ((pos / 16 == start_row) && (board.squares[destination] == '.'))){
-                moves.push_back(destination);
+                addPawnMove(destination);
             }
         }
-
+        // Captures
         for (const int &attack_offset : attacking_offsets){
             destination = pos + attack_offset * direction;
             if (checkValidBounds(destination) && ((islower(board.squares[destination]) && direction == -1) || (isupper(board.squares[destination]) && direction == 1))){
-                moves.push_back(destination);
+                addPawnMove(destination);
+            } else if(checkValidBounds(destination) && board.en_passant_capture_square != -1 && board.en_passant_capture_square == destination){
+                addPawnMove(destination);
             }
         }
         return moves;
     }
     return moves;
+}
+
+int MoveGenerator::perft(int depth, const Board &board){
+    if (depth == 0){
+        return 1;
+    }
+
+    int nodes = 0;
+    for (int i = 0; i < 128; i++){
+        if (board.squares[i] != '.' && getPieceColor(i, board) == board.turn){
+            std::vector<Move> legal_moves = generateLegalMoves(i, board.squares[i], board);
+            for (Move move : legal_moves){
+                Board simulated_board = simulateMove(i, move, board);
+                nodes += perft(depth - 1, simulated_board);
+            }
+        }
+    }
+    return nodes;
+}
+
+int MoveGenerator::getKingPos(char color, const Board &board){
+    char king = (color == 'W') ? 'K' : 'k';
+
+    for (int i = 0; i < 128; i++){
+        if (board.squares[i] == king){
+            return i;
+        }
+    }
+    return -1;
+}
+
+Board MoveGenerator::simulateMove(int pos, Move move, const Board &board){
+    Board simulated = board;
+    simulated.moveTo(move);
+    return simulated;
+}
+
+std::vector<Move> MoveGenerator::generateLegalMoves(int pos, char type, const Board &board){
+    std::vector<Move> pseudo_legal_moves = generatePseudoLegalMoves(pos, type, board);
+    std::vector<Move> legal_moves;
+
+    char enemy_color = (board.turn == 'W') ? 'b' : 'W';
+
+    for (Move move : pseudo_legal_moves){
+        Board simulated_board = simulateMove(pos, move, board);
+        int king_pos = getKingPos(board.turn, simulated_board);
+        if (!isSquareAttacked(king_pos, enemy_color, simulated_board)){
+            legal_moves.push_back(move);
+        }
+    }
+
+    return legal_moves;
 }
