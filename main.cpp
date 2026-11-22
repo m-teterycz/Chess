@@ -5,6 +5,7 @@
 #include "Board.hpp"
 #include "MoveGenerator.hpp"
 #include "Move.hpp"
+#include "Search.hpp"
 
 bool onBoard(int pos) {
     return pos >= 0 && pos < 128 && (pos & 0x88) == 0;
@@ -13,6 +14,7 @@ bool onBoard(int pos) {
 int main() {
     Board board("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1");
     MoveGenerator generator;
+    Search MoveSearch;
 
     std::string command;
 
@@ -126,6 +128,19 @@ int main() {
             auto nodes = generator.perft(depth, board);
 
             std::cout << nodes << '\n' << std::flush;
+        }
+
+        else if (command == "BESTMOVE"){
+            int depth;
+            std::cin >> depth;
+
+            if (depth < 0 || depth > 6) {
+                std::cout << "ERR\n" << std::flush;
+                continue;
+            }
+
+            auto best_move = MoveSearch.findBestMove(depth, board);
+            std::cout << best_move.from << ' ' << best_move.to << ' ' << best_move.promotion << '\n' << std::flush;
         }
 
         else if (command == "QUIT") {

@@ -74,6 +74,18 @@ class ChessEngine:
 
         return int(response)        
 
+    def engine_best_move(self, depth):
+        response = self.send(f"BESTMOVE {depth}")
+
+        if response == "ERR":
+            raise ValueError("GETBESTMOVE FAILED")
+
+        response = response.split(" ")
+        for i,x in enumerate(response):
+            if x.isnumeric():
+                response[i] = to64(int(x))
+
+        return response
 
     def close(self):
         self.send("QUIT")

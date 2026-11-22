@@ -26,15 +26,21 @@ game.turn = "W"
 running = True
 move_made = False
 game_over = False
-game.engine_enabled = False
+game.engine_enabled = True
 
-start = time.time_ns()
-print(engine.perft(5))
-print((time.time_ns() - start) / (10 ** 9))
+#start = time.time_ns()
+#print(engine.perft(5))
+#print((time.time_ns() - start) / (10 ** 9))
 
 while running:
     clock.tick(60)
     screen.fill((128, 128, 128))
+
+    if game.engine_enabled and game.turn != player_color:
+        best_move = engine.engine_best_move(4)
+        engine.move_to(int(best_move[0]), int(best_move[1]), best_move[2])
+        game.turn = "b" if game.turn == "W" else "W"
+        move_made = True
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -45,7 +51,6 @@ while running:
                 if game.engine_enabled:
                     if game.turn == player_color:
                         game.get_clicked_piece(mouse_pos, engine)
-
                         if game.check_promotion():
                             renderer.draw(engine.get_board())
                             choice = game.handle_promote_screen()
@@ -57,7 +62,6 @@ while running:
                         else:
                             game.make_move(engine)
                         move_made = True
-
                 else:
                     game.get_clicked_piece(mouse_pos, engine)
 
