@@ -81,18 +81,18 @@ class Game:
         self.turn = "b" if self.turn == "W" else "W"
 
     def check_and_display_gameend(self, board):
-            if board.check_checkmate(self.turn):
-                won = "Black" if self.turn == "W" else "White"
-                text_surface = self.my_font.render(f'Checkmate: {won} wins!', True, (0, 0, 0))
-                rect = text_surface.get_rect(center=(self.WIDTH // 2, self.HEIGHT // 2))
-                self.screen.blit(text_surface, rect)
-                return True
-            elif board.check_stalemate(self.turn):
-                text_surface = self.my_font.render(f'Stalemate', True, (0, 0, 0))
-                rect = text_surface.get_rect(center=(self.WIDTH // 2, self.HEIGHT // 2))
-                self.screen.blit(text_surface, rect)
-                return True
-            return False
+        if self.check_checkmate(board):
+            won = "Black" if self.turn == "W" else "White"
+            text_surface = self.my_font.render(f'Checkmate: {won} wins!', True, (0, 0, 0))
+            rect = text_surface.get_rect(center=(self.WIDTH // 2, self.HEIGHT // 2))
+            self.screen.blit(text_surface, rect)
+            return True
+        elif self.check_stalemate(board):
+            text_surface = self.my_font.render(f'Stalemate', True, (0, 0, 0))
+            rect = text_surface.get_rect(center=(self.WIDTH // 2, self.HEIGHT // 2))
+            self.screen.blit(text_surface, rect)
+            return True
+        return False
 
     def check_promotion(self):
         if self.selected_piece not in ("P", "p"):
@@ -128,4 +128,29 @@ class Game:
         elif board.halfmove == 100:
             print("Allow draw from either side.")
 
+    def check_stalemate(self, board):
+        for i,square in enumerate(board.get_board()):
+            if square == "K" and self.turn.isupper():
+                moves = self.move_generator.generate_moves(i)
+            elif square == "k" and self.turn.islower():
+                moves = self.move_generator.generate_moves(i)
+
+        if len(moves) == 0:
+            return True
+        return False
+
+    def check_checkmate(self, board):
+        attacking_color = "W" if self.turn == 'b' else "W"
+        if self.check_stalemate(board):
+            for i,square in enumerate(board.get_board()):
+                if square == "K" and self.turn.isupper():
+                    if board.checkAttackedSquare(i, attacking_color):
+                        return True
+                elif square == "k" and self.turn.islower():
+                    if board.checkAttackedSquare(i, attacking_color):
+                        return True
+
+        return False
+
+                    
     

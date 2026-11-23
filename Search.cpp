@@ -88,11 +88,12 @@ int Search::positionalEvaluation(char piece_type, int pos){
     return 0;
 }
 
-int Search::negamax(int depth, const Board &board){
+int Search::negamax(int depth, int alpha, int beta, const Board &board){ // Alpha is the best score initial player can get and beta is the best score the other player can get
     constexpr int INF = 2000000;
     constexpr int MATE = 1000000;
 
     int score = -INF;
+    int best_score = -INF;
     bool has_legal_moves = false;  
 
     for (int i = 0; i < board.squares.size(); i++){
@@ -112,8 +113,16 @@ int Search::negamax(int depth, const Board &board){
 
         for (auto move : moves){
             Board simulated = generator.simulateMove(i, move, board);
-            score = std::max(-negamax(depth - 1, simulated), score);
+            score = -negamax(depth - 1, -beta, -alpha, simulated);
+
+            best_score = std::max(score, best_score);
+            alpha = std::max(alpha, score);
+
+            if (alpha >= beta){
+                break;
+            }
         }
+        return best_score;
     }
     if (!has_legal_moves){
         char color = (board.turn == 'W') ? 'b' : 'W';
@@ -146,7 +155,7 @@ Move Search::findBestMove(int depth, const Board &board){
         auto moves = generator.generateLegalMoves(i, piece, board);
         for (auto move : moves){
             Board simulated = generator.simulateMove(i, move, board);
-            int score = -negamax(depth - 1, simulated);
+            int score = -negamax(depth - 1, -INF, INF, simulated);
 
             if (score > best_score){
                 best_move = move;

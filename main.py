@@ -26,7 +26,7 @@ game.turn = "W"
 running = True
 move_made = False
 game_over = False
-game.engine_enabled = True
+game.engine_enabled = False
 
 #start = time.time_ns()
 #print(engine.perft(5))
@@ -37,7 +37,7 @@ while running:
     screen.fill((128, 128, 128))
 
     if game.engine_enabled and game.turn != player_color:
-        best_move = engine.engine_best_move(4)
+        best_move = engine.engine_best_move(6)
         engine.move_to(int(best_move[0]), int(best_move[1]), best_move[2])
         game.turn = "b" if game.turn == "W" else "W"
         move_made = True
@@ -51,6 +51,7 @@ while running:
                 if game.engine_enabled:
                     if game.turn == player_color:
                         game.get_clicked_piece(mouse_pos, engine)
+                        print(game.possible_moves)
                         if game.check_promotion():
                             renderer.draw(engine.get_board())
                             choice = game.handle_promote_screen()
@@ -76,15 +77,17 @@ while running:
                     else:
                         game.make_move(engine)
                     move_made = True
-    """
-        if move_made:
-            game_over = game.check_and_display_gameend(Board1)
-            move_made = False
-    """
+    
+    if move_made:
+        while game.check_and_display_gameend(engine):
+            renderer.draw(engine.get_board())
+            game.check_and_display_gameend(engine)
+            pygame.display.flip()
+        move_made = False
     
     renderer.draw(engine.get_board())
     #renderer.draw_eval_bar(0)
-    
+
 
     pygame.display.flip()
    

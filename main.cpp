@@ -12,7 +12,7 @@ bool onBoard(int pos) {
 }
 
 int main() {
-    Board board("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1");
+    Board board("6Q1/5R2/7k/8/8/8/8/6K1 w - - 0 1");
     MoveGenerator generator;
     Search MoveSearch;
 

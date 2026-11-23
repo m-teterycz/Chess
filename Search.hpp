@@ -99,6 +99,6 @@ public:
     int evaluate(const Board &board);
     int positionalEvaluation(char piece_type, int pos);
     int to64(int pos);
-    int negamax(int depth, const Board &board);
+    int negamax(int depth, int alpha, int beta, const Board &board);
     Move findBestMove(int depth, const Board &board);
 };
