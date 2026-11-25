@@ -122,7 +122,6 @@ int Search::negamax(int depth, int alpha, int beta, const Board &board){ // Alph
                 break;
             }
         }
-        return best_score;
     }
     if (!has_legal_moves){
         char color = (board.turn == 'W') ? 'b' : 'W';
@@ -137,7 +136,7 @@ int Search::negamax(int depth, int alpha, int beta, const Board &board){ // Alph
         int color = (board.turn == 'W') ? 1 : -1;
         return color * evaluate(board);
     }
-    return score;
+    return best_score;
 }
 
 Move Search::findBestMove(int depth, const Board &board){

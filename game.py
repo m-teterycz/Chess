@@ -50,11 +50,9 @@ class Game:
         if self.click_pos not in self.possible_moves:
             return False
 
-        # Ask C++ to make the move
         if not board.move_to(self.piece_pos, self.click_pos, promotion):
             return False
 
-        # Only execute these if C++ accepted the move
         self.reset_square_colors()
         self.turn = "b" if self.turn == "W" else "W"
 
